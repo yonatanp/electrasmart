@@ -12,6 +12,8 @@ setup:
   entry_points:
     console_scripts:
     - electrasmart-auth = electrasmart.cli:auth
+    - electrasmart-list-devices = electrasmart.cli:list_devices
+    - electrasmart-gen-baseline-status = electrasmart.cli:gen_baseline_status
   author: Yonatan Perry
   author_email: yonatan.perry@gmail.com
   license: This project is licensed under the terms of the MIT license

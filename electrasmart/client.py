@@ -68,12 +68,32 @@ def generate_token(phone):
     return imei, token
 
 
+def generate_sid(imei, token):
+    result = ElectraAPI.post(
+        'VALIDATE_TOKEN',
+        dict(
+            imei=imei,
+            token=token,
+        ),
+        os_details=True
+    )
+    return result['sid']
+
+
+def get_devices(imei, token):
+    sid = generate_sid(imei, token)
+    result = ElectraAPI.post("GET_DEVICES", {}, sid)
+    assert "devices" in result and len(result["devices"]), "no devices found for this account"
+    return result["devices"]
+
+
 class AC:
-    def __init__(self, imei, token, ac_id, sid=None):
+    def __init__(self, imei, token, ac_id, sid=None, baseline_status=None):
         self.imei = imei
         self.token = token
         self.ac_id = ac_id
         self.sid = sid
+        self.baseline_status = baseline_status or default_example_status_path()
 
     def _post(self, cmd, data, os_details=False):
         return ElectraAPI.post(cmd, data, self.sid, os_details)
@@ -94,31 +114,22 @@ class AC:
     }
 
     def check_status(self, status):
-        ex_status = json.load(open(example_status_path(), "r"))
-        assert status.keys() == ex_status.keys(), "different keys"
+        baseline_status = json.load(open(self.baseline_status, "r"))
+        assert status.keys() == baseline_status.keys(), "different keys"
         for k, s1 in status.items():
             assert list(s1.keys()) == [k], f"expected ['{k}'] to have one '{k}' key"
             s2 = s1[k]
-            assert s2.keys() == ex_status[k][k].keys(), f"different keys in ['{k}']['{k}']"
+            assert s2.keys() == baseline_status[k][k].keys(), f"different keys in ['{k}']['{k}']"
             if k == 'DIAG_L2':
                 continue
             for k2, v2 in s2.items():
                 if k2 in self.ALLOWED_STATUS_VARIATIONS.get(k, []):
                     continue
-                ref = ex_status[k][k][k2]
+                ref = baseline_status[k][k][k2]
                 assert v2 == ref, f"mismatch in ['{k}']['{k}']['{k2}']: {repr(v2)} vs {repr(ref)}"
 
     def renew_sid(self):
-        self.sid = None
-        r = self._post(
-            'VALIDATE_TOKEN',
-            dict(
-                token=self.token,
-                imei=self.imei,
-            ),
-            os_details=True
-        )
-        self.sid = r['sid']
+        self.sid = generate_sid(self.imei, self.token)
         print("renewed sid:", self.sid)
 
     def _modify_oper(self, *, ac_mode=None, fan_speed=None, temperature=None, ac_stsrc='WI-FI'):
@@ -150,5 +161,5 @@ class AC:
         self._modify_oper(ac_mode='COOL', fan_speed='LOW', temperature=26)
 
 
-def example_status_path():
+def default_example_status_path():
     return os.path.join(os.path.dirname(__file__), "example_status.json")
