@@ -144,7 +144,7 @@ class AC:
         self.sid = generate_sid(self.imei, self.token)
         print("renewed sid:", self.sid)
 
-    def _modify_oper(self, *, ac_mode=None, fan_speed=None, temperature=None, ac_stsrc='WI-FI'):
+    def modify_oper(self, *, ac_mode=None, fan_speed=None, temperature=None, ac_stsrc='WI-FI'):
         status = self.status(check=True)
         new_oper = status['OPER']['OPER'].copy()
         if ac_mode is not None:
@@ -161,16 +161,16 @@ class AC:
         ))
 
     def turn_off(self):
-        self._modify_oper(ac_mode='STBY')
+        self.modify_oper(ac_mode='STBY')
 
     def cool_24_auto(self):
-        self._modify_oper(ac_mode='COOL', fan_speed='AUTO', temperature=24)
+        self.modify_oper(ac_mode='COOL', fan_speed='AUTO', temperature=24)
 
     def fan_high(self):
-        self._modify_oper(ac_mode='FAN', fan_speed='HIGH')
+        self.modify_oper(ac_mode='FAN', fan_speed='HIGH')
 
     def cool_26_low(self):
-        self._modify_oper(ac_mode='COOL', fan_speed='LOW', temperature=26)
+        self.modify_oper(ac_mode='COOL', fan_speed='LOW', temperature=26)
 
 
 def default_example_status_path():

@@ -1,1 +1,82 @@
-{"OPER": {"OPER": {"AC_MODE": "COOL", "FANSPD": "AUTO", "SPT": 22, "TIMER": "OFF", "SHABAT": "OFF", "IFEEL": "OFF", "SLEEP": "OFF", "CLEAR_FILT": "OFF", "AC_STSRC": "WI-FI", "DIAG_L2_PRD": "3600", "FW_OTA": "None"}}, "DIAG_L2": {"DIAG_L2": {"I_STOP_COMP": "NO RQST", "I_LOCK": "NO LOCK", "I_DEICER": "OFF", "I_NLOAD": "0", "I_ICT": "18", "I_RAT": "23", "I_PUMP": "ON", "I_BAD_ICT": "NORM", "I_BAD_RAT": "NORM", "I_LOGIC_SPT": "22", "I_CALC_AT": "23", "I_RCT": "23", "I_FAN_ACT": "0", "I_ON_OFF_STAT": "ON", "I_SELFTEST": "OFF", "O_ODU_MODE": "COOL", "O_FORCE_STDBY": "OFF", "O_RGT_BAD": "NORM", "O_RLT_BAD": "NORM", "O_TRGT_FREQ": "0", "O_ACT_FREQ": "0", "O_RV": "COOL", "O_PROT_RESON": "NORM", "O_PROT_STAT": "NORM", "O_CUR_RWR_TYPE": "AC Current", "O_AC_CURRENT": "0", "O_DC_CURRENT": "0", "O_SYS_PWR": "0", "O_EEV_DMSMP": "0", "O_FANUP_SPD": "0", "O_FANDOWN_SPD": "0", "OFAN_TYPE": "FANUP", "O_MODEL": "0", "O_EEV": "0", "O_BAD_OMT": "NORM", "O_OAT": "0", "O_OCT": "43", "O_CTT": "0", "O_HST": "0", "O_OMT": "0", "O_GLT": "0", "IP_LO_PRES": "CLOSE", "IP_HI_PRES": "CLOSE", "GOOD_IR_CNT": "38", "BAD_IR_CNT": "5", "IDU_TX_CNT": "7013", "IDU_CRC_ERR_RX_CNT": "17", "IDU_RX_CNT": "7013", "M2L_TX_CNT": "0", "M2L_CRC_ERR_RX_CNT": "0", "M2L_RX_CNT": "0", "MAIN_PWR_STATUS": "1221", "SMPS_PWR_STATUS": "330", "WI_FI_RSSI": "-62", "DISPLAY_IP": "10.0.0.3"}}, "HB": {"HB": {"MESSTYPE": "HB", "HB_CNT": 22193}}}
+{
+  "OPER": {
+    "OPER": {
+      "AC_MODE": "COOL",
+      "FANSPD": "AUTO",
+      "SPT": 22,
+      "TIMER": "OFF",
+      "SHABAT": "OFF",
+      "IFEEL": "OFF",
+      "SLEEP": "OFF",
+      "CLEAR_FILT": "OFF",
+      "AC_STSRC": "WI-FI",
+      "DIAG_L2_PRD": "3600",
+      "FW_OTA": "None"
+    }
+  },
+  "DIAG_L2": {
+    "DIAG_L2": {
+      "I_STOP_COMP": "NO RQST",
+      "I_LOCK": "NO LOCK",
+      "I_DEICER": "OFF",
+      "I_NLOAD": "0",
+      "I_ICT": "18",
+      "I_RAT": "23",
+      "I_PUMP": "ON",
+      "I_BAD_ICT": "NORM",
+      "I_BAD_RAT": "NORM",
+      "I_LOGIC_SPT": "22",
+      "I_CALC_AT": "23",
+      "I_RCT": "23",
+      "I_FAN_ACT": "0",
+      "I_ON_OFF_STAT": "ON",
+      "I_SELFTEST": "OFF",
+      "O_ODU_MODE": "COOL",
+      "O_FORCE_STDBY": "OFF",
+      "O_RGT_BAD": "NORM",
+      "O_RLT_BAD": "NORM",
+      "O_TRGT_FREQ": "0",
+      "O_ACT_FREQ": "0",
+      "O_RV": "COOL",
+      "O_PROT_RESON": "NORM",
+      "O_PROT_STAT": "NORM",
+      "O_CUR_RWR_TYPE": "AC Current",
+      "O_AC_CURRENT": "0",
+      "O_DC_CURRENT": "0",
+      "O_SYS_PWR": "0",
+      "O_EEV_DMSMP": "0",
+      "O_FANUP_SPD": "0",
+      "O_FANDOWN_SPD": "0",
+      "OFAN_TYPE": "FANUP",
+      "O_MODEL": "0",
+      "O_EEV": "0",
+      "O_BAD_OMT": "NORM",
+      "O_OAT": "0",
+      "O_OCT": "43",
+      "O_CTT": "0",
+      "O_HST": "0",
+      "O_OMT": "0",
+      "O_GLT": "0",
+      "IP_LO_PRES": "CLOSE",
+      "IP_HI_PRES": "CLOSE",
+      "GOOD_IR_CNT": "38",
+      "BAD_IR_CNT": "5",
+      "IDU_TX_CNT": "7013",
+      "IDU_CRC_ERR_RX_CNT": "17",
+      "IDU_RX_CNT": "7013",
+      "M2L_TX_CNT": "0",
+      "M2L_CRC_ERR_RX_CNT": "0",
+      "M2L_RX_CNT": "0",
+      "MAIN_PWR_STATUS": "1221",
+      "SMPS_PWR_STATUS": "330",
+      "WI_FI_RSSI": "-62",
+      "DISPLAY_IP": "10.0.0.3"
+    }
+  },
+  "HB": {
+    "HB": {
+      "MESSTYPE": "HB",
+      "HB_CNT": 22193
+    }
+  }
+}
