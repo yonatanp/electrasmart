@@ -88,12 +88,15 @@ def get_devices(imei, token):
 
 
 class AC:
-    def __init__(self, imei, token, ac_id, sid=None, baseline_status=None):
+    def __init__(self, imei, token, ac_id, sid=None, strict_mode=False, baseline_status=None):
         self.imei = imei
         self.token = token
         self.ac_id = ac_id
         self.sid = sid
-        self.baseline_status = baseline_status or default_example_status_path()
+        if strict_mode:
+            self.baseline_status = baseline_status or default_example_status_path()
+        else:
+            self.baseline_status = None
 
     def _post(self, cmd, data, os_details=False):
         return ElectraAPI.post(cmd, data, self.sid, os_details)
@@ -104,16 +107,25 @@ class AC:
             commandName='OPER,DIAG_L2,HB'
         ))
         cj = r["commandJson"]
-        status = {k: json.loads(v) for k, v in cj.items()}
+        status = {k: self._parse_status_group(v) for k, v in cj.items()}
         if check:
             self.check_status(status)
         return status
+
+    @classmethod
+    def _parse_status_group(cls, v):
+        if v is None or v == 'null' or v == 'None' or not v:
+            return None
+        return json.loads(v)
 
     ALLOWED_STATUS_VARIATIONS = {
         'OPER': ['AC_MODE', 'FANSPD', 'SPT', 'AC_STSRC']
     }
 
     def check_status(self, status):
+        if self.baseline_status is None:
+            # basline check not available (i.e. non-strict mode)
+            return
         baseline_status = json.load(open(self.baseline_status, "r"))
         assert status.keys() == baseline_status.keys(), "different keys"
         for k, s1 in status.items():
