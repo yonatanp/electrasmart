@@ -153,7 +153,7 @@ class AC:
             new_oper['FANSPD'] = fan_speed
         if temperature is not None:
             new_oper['SPT'] = temperature
-        if ac_stsrc is not None:
+        if ac_stsrc is not None and "AC_STSRC" in new_oper:
             new_oper['AC_STSRC'] = ac_stsrc
         self._post('SEND_COMMAND', dict(
             id=self.ac_id,
