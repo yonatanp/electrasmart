@@ -144,7 +144,7 @@ class AC:
         self.sid = generate_sid(self.imei, self.token)
         print("renewed sid:", self.sid)
 
-    def modify_oper(self, *, ac_mode=None, fan_speed=None, temperature=None, ac_stsrc='WI-FI'):
+    def modify_oper(self, *, ac_mode=None, fan_speed=None, temperature=None, ac_stsrc='WI-FI', auto_on_off=True):
         status = self.status(check=True)
         new_oper = status['OPER']['OPER'].copy()
         if ac_mode is not None:
@@ -152,9 +152,17 @@ class AC:
         if fan_speed is not None:
             new_oper['FANSPD'] = fan_speed
         if temperature is not None:
+            if 'SPT' in new_oper:
+                temperature = int(temperature) if isinstance(new_oper['SPT'], int) else str(temperature)
             new_oper['SPT'] = temperature
         if ac_stsrc is not None and "AC_STSRC" in new_oper:
             new_oper['AC_STSRC'] = ac_stsrc
+        if auto_on_off:
+            if 'TURN_ON_OFF' in new_oper and ac_mode is not None:
+                if ac_mode == "STBY":
+                    new_oper['TURN_ON_OFF'] = "OFF"
+                else:
+                    new_oper['TURN_ON_OFF'] = "ON"
         self._post('SEND_COMMAND', dict(
             id=self.ac_id,
             commandJson=json.dumps({'OPER': new_oper})
