@@ -53,9 +53,9 @@ def send_command():
     parser = ArgumentParser("Send command to the AC unit")
     _add_ac_arguments(parser)
     parser.add_argument("--ac-mode", default=None, help="set the AC mode",
-                        choices=["STBY", "COOL", "FAN", "HEAT", "DRY"])  # TODO: add and verify choices
+                        choices=["STBY", "COOL", "FAN", "DRY", "HEAT", "AUTO"])  # TODO: take from constants module
     parser.add_argument("--fan-speed", default=None, help="set the fan speed",
-                        choices=["LOW", "MEDIUM", "HIGH", "AUTO"])
+                        choices=["LOW", "MED", "HIGH", "AUTO"])
     parser.add_argument("--temperature", default=None, type=int, help="set the target temperature")
     args = parser.parse_args()
     oper_kwargs = {}

@@ -1,42 +1,55 @@
 import os
 import json
 import random
-from pprint import pprint
+from pprint import pformat
 
 import requests
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ElectraAPI:
     URL = "https://app.ecpiot.co.il/mobile/mobilecommand"
+    HEADERS = {'user-agent': 'Electra Client'}
 
     MOCK_OS_DATA = {
         "os": "android",
         "osver": "M4B30Z",
     }
 
-    GLOBAL_VERBOSE = False
-
     @classmethod
     def post(cls, cmd, data, sid=None, os_details=False):
         if os_details:
             data = data.copy()
             data.update(cls.MOCK_OS_DATA)
-        response = requests.post(
-            cls.URL,
-            headers={'user-agent': 'Electra Client'},
-            json=dict(
-                pvdid=1,
-                id=999,
-                sid=sid,
-                cmd=cmd,
-                data=data
-            )
+        random_id = random.randint(1000, 1999)
+        post_data = dict(
+            pvdid=1,
+            id=random_id,
+            sid=sid,
+            cmd=cmd,
+            data=data
         )
-        j = response.json()
-        if cls.GLOBAL_VERBOSE:
-            pprint(j)
-        assert j['status'] == 0, "invalid status returned from command"
-        assert j['data']['res'] == 0, "invalid res returned from command"
+        logger.debug(f"Posting request\nid: {random_id}\nurl: {cls.URL}\nheaders: {cls.HEADERS}\n"
+                     f"post json data:\n{pformat(post_data)}")
+        try:
+            response = requests.post(
+                cls.URL,
+                headers=cls.HEADERS,
+                json=post_data,
+            )
+            j = response.json()
+        except:
+            logger.exception("ElectraAPI: Exception caught when posting to cloud service")
+            raise
+        logger.debug(f"Response received (id={random_id}):\n{pformat(j)}")
+        try:
+            assert j['status'] == 0, "invalid status returned from command"
+            assert j['data']['res'] == 0, "invalid res returned from command"
+        except:
+            logger.exception(f"Error status when posting command")
+            raise
         return j['data']
 
 
@@ -142,7 +155,7 @@ class AC:
 
     def renew_sid(self):
         self.sid = generate_sid(self.imei, self.token)
-        print("renewed sid:", self.sid)
+        logger.info(f"renewed sid: {self.sid}")
 
     def modify_oper(self, *, ac_mode=None, fan_speed=None, temperature=None, ac_stsrc='WI-FI', auto_on_off=True):
         status = self.status(check=True)
