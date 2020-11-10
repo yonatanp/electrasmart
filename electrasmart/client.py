@@ -53,12 +53,12 @@ class ElectraAPI:
         return j['data']
 
 
-def generate_token(phone):
+def send_otp_request(phone):
     """
-    Generate an authentication pair (imei & token) to be used by the AC class
+    Generate an imei to be used by the AC class and send an OTP code request
     :param phone: a string of digits (e.g. '0524001234')
 
-    :return: imei, token
+    :return: imei
     """
     # generate a random imei with a valid prefix (note: this might not be checked today, but just in case)
     imei = f'2b950000{random.randint(10**7, 10**8-1)}'
@@ -66,7 +66,17 @@ def generate_token(phone):
         imei=imei,
         phone=phone,
     ))
-    otp = input(f"Please enter the OTP password received at {phone}: ")
+    return imei
+
+def get_otp_token(imei, phone, otp):
+    """
+    Send a request to get a token by providing the received otp code from send_otp_request
+    :param imei: a string (e.g. '0524001234')
+    :param phone: a string of digits (e.g. '0524001234')
+    :param otp: a string
+
+    :return: imei, token
+    """
     result = ElectraAPI.post(
         "CHECK_OTP",
         dict(
