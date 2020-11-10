@@ -2,6 +2,7 @@
 """
 import sys
 import json
+import re
 from pprint import pprint
 from argparse import ArgumentParser
 
@@ -14,13 +15,25 @@ def auth():
     args = parser.parse_args()
 
     phone = args.phone
-    imei = send_otp_request(phone)
-    otp = input(f"Please enter the OTP password received at {phone}: ")
-    imei, token = get_otp_token(imei, phone, otp)
-    
-    print("Use the following auth parameters for instantiating your AC class:")
-    print(f"  - imei: {imei}")
-    print(f"  - token: {token}")
+    phonePattern = "[0-9]{10}"
+    otpPattern = "[0-9]{4}"
+
+    m = re.match(phonePattern, phone)
+    if m:
+        imei = send_otp_request(phone)
+        otp = input(f"Please enter the OTP password received at {phone}: ")
+
+        m = re.match(otpPattern, otp)
+        if m:
+            imei, token = get_otp_token(imei, phone, otp)
+
+            print("Use the following auth parameters for instantiating your AC class:")
+            print(f"  - imei: {imei}")
+            print(f"  - token: {token}")
+        else:
+            print(f" OTP code: {otp} is invalid")
+    else:
+        print(f" phone number: {phone} is invalid")
 
 
 def list_devices():
