@@ -5,7 +5,7 @@ import json
 from pprint import pprint
 from argparse import ArgumentParser
 
-from .client import generate_token, get_devices, AC
+from .client import send_otp_request, get_otp_token, get_devices, AC
 
 
 def auth():
@@ -13,7 +13,11 @@ def auth():
     parser.add_argument("phone", help="the phone registered to the AC (as a string of digits, e.g. '0524001234')")
     args = parser.parse_args()
 
-    imei, token = generate_token(args.phone)
+    phone = args.phone
+    imei = send_otp_request(phone)
+    otp = input(f"Please enter the OTP password received at {phone}: ")
+    imei, token = get_otp_token(imei, phone, otp)
+    
     print("Use the following auth parameters for instantiating your AC class:")
     print(f"  - imei: {imei}")
     print(f"  - token: {token}")
