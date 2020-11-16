@@ -155,6 +155,7 @@ class AC:
 
     def renew_sid(self):
         self.sid = generate_sid(self.imei, self.token)
+        logger.debug(f"renewed sid: {self.sid}")
         return self.sid
 
     def modify_oper(self, *, ac_mode=None, fan_speed=None, temperature=None, ac_stsrc='WI-FI', auto_on_off=True):
