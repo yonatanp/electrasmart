@@ -1,6 +1,7 @@
 import os
 import json
 import random
+from datetime import datetime
 from pprint import pformat
 
 import requests
@@ -17,6 +18,10 @@ class ElectraAPI:
         "os": "android",
         "osver": "M4B30Z",
     }
+
+    MIN_TIME_BETWEEN_SID_UPDATES = 60
+    LAST_SID_UPDATE_DATETIME = None
+    SID = None
 
     @classmethod
     def post(cls, cmd, data, sid=None, os_details=False):
@@ -53,12 +58,12 @@ class ElectraAPI:
         return j['data']
 
 
-def generate_token(phone):
+def send_otp_request(phone):
     """
-    Generate an authentication pair (imei & token) to be used by the AC class
+    Generate an imei to be used by the AC class and send an OTP code request
     :param phone: a string of digits (e.g. '0524001234')
 
-    :return: imei, token
+    :return: imei
     """
     # generate a random imei with a valid prefix (note: this might not be checked today, but just in case)
     imei = f'2b950000{random.randint(10**7, 10**8-1)}'
@@ -66,7 +71,17 @@ def generate_token(phone):
         imei=imei,
         phone=phone,
     ))
-    otp = input(f"Please enter the OTP password received at {phone}: ")
+    return imei
+
+def get_otp_token(imei, phone, otp):
+    """
+    Send a request to get a token by providing the received otp code from send_otp_request
+    :param imei: a string (e.g. '0524001234')
+    :param phone: a string of digits (e.g. '0524001234')
+    :param otp: a string
+
+    :return: imei, token
+    """
     result = ElectraAPI.post(
         "CHECK_OTP",
         dict(
@@ -92,6 +107,19 @@ def generate_sid(imei, token):
     )
     return result['sid']
 
+def get_shared_sid(imei, token):
+    date_now = datetime.now()
+    if (ElectraAPI.SID is None or ElectraAPI.LAST_SID_UPDATE_DATETIME is None or date_diff_in_seconds(date_now, ElectraAPI.LAST_SID_UPDATE_DATETIME) > ElectraAPI.MIN_TIME_BETWEEN_SID_UPDATES):
+        ElectraAPI.SID = generate_sid(imei, token)
+        ElectraAPI.LAST_SID_UPDATE_DATETIME = date_now
+        logger.info(f"renewed shared sid: {ElectraAPI.SID}")
+    return ElectraAPI.SID
+
+def date_diff_in_seconds(dt2, dt1):
+  timedelta = dt2 - dt1
+  return timedelta.days * 24 * 3600 + timedelta.seconds
+
+
 
 def get_devices(imei, token):
     sid = generate_sid(imei, token)
@@ -101,11 +129,13 @@ def get_devices(imei, token):
 
 
 class AC:
-    def __init__(self, imei, token, ac_id, sid=None, strict_mode=False, baseline_status=None):
+    def __init__(self, imei, token, ac_id, sid=None, strict_mode=False, baseline_status=None, use_single_sid=False):
         self.imei = imei
         self.token = token
         self.ac_id = ac_id
-        self.sid = sid
+        self.use_singe_sid = use_single_sid
+        if not use_single_sid:
+            self.sid = sid
         if strict_mode:
             self.baseline_status = baseline_status or default_example_status_path()
         else:
@@ -154,8 +184,11 @@ class AC:
                 assert v2 == ref, f"mismatch in ['{k}']['{k}']['{k2}']: {repr(v2)} vs {repr(ref)}"
 
     def renew_sid(self):
-        self.sid = generate_sid(self.imei, self.token)
-        logger.info(f"renewed sid: {self.sid}")
+        if self.use_singe_sid:
+            self.sid = get_shared_sid(self.imei, self.token)
+        else: 
+            self.sid = generate_sid(self.imei, self.token)
+            logger.debug(f"renewed sid: {self.sid}")
 
     def modify_oper(self, *, ac_mode=None, fan_speed=None, temperature=None, ac_stsrc='WI-FI', auto_on_off=True):
         status = self.status(check=True)

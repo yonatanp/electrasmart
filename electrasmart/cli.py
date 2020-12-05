@@ -2,10 +2,11 @@
 """
 import sys
 import json
+import re
 from pprint import pprint
 from argparse import ArgumentParser
 
-from .client import generate_token, get_devices, AC
+from .client import send_otp_request, get_otp_token, get_devices, AC
 
 
 def auth():
@@ -13,10 +14,26 @@ def auth():
     parser.add_argument("phone", help="the phone registered to the AC (as a string of digits, e.g. '0524001234')")
     args = parser.parse_args()
 
-    imei, token = generate_token(args.phone)
-    print("Use the following auth parameters for instantiating your AC class:")
-    print(f"  - imei: {imei}")
-    print(f"  - token: {token}")
+    phone = args.phone
+    phonePattern = "[0-9]{10}"
+    otpPattern = "[0-9]{4}"
+
+    m = re.match(phonePattern, phone)
+    if m:
+        imei = send_otp_request(phone)
+        otp = input(f"Please enter the OTP password received at {phone}: ")
+
+        m = re.match(otpPattern, otp)
+        if m:
+            imei, token = get_otp_token(imei, phone, otp)
+
+            print("Use the following auth parameters for instantiating your AC class:")
+            print(f"  - imei: {imei}")
+            print(f"  - token: {token}")
+        else:
+            print(f" OTP code: {otp} is invalid")
+    else:
+        print(f" phone number: {phone} is invalid")
 
 
 def list_devices():
@@ -41,7 +58,8 @@ def gen_baseline_status():
     if args.output_file is None:
         args.output_file = f"baseline_status_{args.ac_id}.json"
     ac = AC(args.imei, args.token, args.ac_id)
-    ac.renew_sid()
+    sid = ac.renew_sid()
+    print(f"renewed sid: {sid})
     status = ac.status(check=False)
     f = open(args.output_file, "w") if args.output_file != "-" else sys.stdout
     json.dump(status, f)
@@ -68,7 +86,8 @@ def send_command():
     if not oper_kwargs:
         parser.exit(message="no change was requested, aborting")
     ac = AC(args.imei, args.token, args.ac_id)
-    ac.renew_sid()
+    sid = ac.renew_sid()
+    print(f"renewed sid: {sid})
     ac.modify_oper(**oper_kwargs)
 
 
