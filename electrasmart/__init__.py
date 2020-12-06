@@ -1,1 +1,1 @@
-from .client import AC, ElectraAPI, generate_token
+from .client import AC, ElectraAPI
