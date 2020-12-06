@@ -24,7 +24,7 @@ class ElectraAPI:
     SID = None
 
     @classmethod
-    def post(cls, cmd, data, sid=None, os_details=False):
+    def post(cls, cmd, data, sid=None, os_details=False, retry=False):
         if os_details:
             data = data.copy()
             data.update(cls.MOCK_OS_DATA)
@@ -47,12 +47,16 @@ class ElectraAPI:
             )
             raise
         logger.debug(f"Response received (id={random_id}):\n{pformat(j)}")
-        try:
-            assert j["status"] == 0, "invalid status returned from command"
-            assert j["data"]["res"] == 0, "invalid res returned from command"
-        except:
-            logger.exception(f"Error status when posting command")
-            raise
+        if retry:
+            try:
+                assert j["status"] == 0, "invalid status returned from command"
+                assert j["data"]["res"] == 0, "invalid res returned from command"
+            except:
+                logger.exception(f"Error status when posting command")
+                raise
+        else:
+            if j["status"] != 0 or j["data"] is None or j["data"]["res"] != 0:
+                return False
         return j["data"]
 
 
@@ -125,7 +129,7 @@ def date_diff_in_seconds(dt2, dt1):
 
 def get_devices(imei, token):
     sid = generate_sid(imei, token)
-    result = ElectraAPI.post("GET_DEVICES", {}, sid)
+    result = ElectraAPI.post("GET_DEVICES", {}, sid, False, True)
     assert "devices" in result and len(
         result["devices"]
     ), "no devices found for this account"
@@ -154,13 +158,27 @@ class AC:
         else:
             self.baseline_status = None
 
-    def _post(self, cmd, data, os_details=False):
-        return ElectraAPI.post(cmd, data, self.sid, os_details)
+    def _post_with_retry(self, cmd, data, os_details=False):
+        res = self._post(cmd, data, os_details, False)
+        if not res:
+            self.renew_sid()
+            return self._post(cmd, data, os_details, True)
+        return res
+
+    def _post(self, cmd, data, os_details=False, retry=False):
+        return ElectraAPI.post(cmd, data, self._get_sid(), os_details, retry)
+
+    def _get_sid(self):
+        if self.use_singe_sid:
+            return ElectraAPI.SID
+        else:
+            return self.sid
 
     def status(self, *, check=False):
-        r = self._post(
+        r = self._post_with_retry(
             "GET_LAST_TELEMETRY", dict(id=self.ac_id, commandName="OPER,DIAG_L2,HB")
         )
+
         cj = r["commandJson"]
         status = {k: self._parse_status_group(v) for k, v in cj.items()}
         if check:
@@ -235,7 +253,7 @@ class AC:
                     new_oper["TURN_ON_OFF"] = "OFF"
                 else:
                     new_oper["TURN_ON_OFF"] = "ON"
-        self._post(
+        self._post_with_retry(
             "SEND_COMMAND",
             dict(id=self.ac_id, commandJson=json.dumps({"OPER": new_oper})),
         )
