@@ -1,8 +1,8 @@
-import os
 import json
 import random
 from datetime import datetime
 from pprint import pformat
+from contextlib import contextmanager
 
 import requests
 import logging
@@ -143,8 +143,6 @@ class AC:
         token,
         ac_id,
         sid=None,
-        strict_mode=False,
-        baseline_status=None,
         use_single_sid=False,
     ):
         self.imei = imei
@@ -153,10 +151,32 @@ class AC:
         self.use_singe_sid = use_single_sid
         if not use_single_sid:
             self.sid = sid
-        if strict_mode:
-            self.baseline_status = baseline_status or default_example_status_path()
+        self._status = None
+        self._model = None
+
+    def renew_sid(self):
+        if self.use_singe_sid:
+            self.sid = get_shared_sid(self.imei, self.token)
         else:
-            self.baseline_status = None
+            self.sid = generate_sid(self.imei, self.token)
+            logger.debug(f"renewed sid: {self.sid}")
+
+    def update_status(self):
+        self._status = self._fetch_status()
+
+    @property
+    def status(self):
+        if self._status is None:
+            return None
+        return DeviceStatusAccessor(self._status, self.model)
+
+    def _fetch_status(self):
+        r = self._post_with_retry(
+            "GET_LAST_TELEMETRY", dict(id=self.ac_id, commandName="OPER,DIAG_L2,HB")
+        )
+        cj = r["commandJson"]
+        status = {k: self._parse_status_group(v) for k, v in cj.items()}
+        return status
 
     def _post_with_retry(self, cmd, data, os_details=False):
         res = self._post(cmd, data, os_details, False)
@@ -174,53 +194,22 @@ class AC:
         else:
             return self.sid
 
-    def status(self, *, check=False):
-        r = self._post_with_retry(
-            "GET_LAST_TELEMETRY", dict(id=self.ac_id, commandName="OPER,DIAG_L2,HB")
-        )
-
-        cj = r["commandJson"]
-        status = {k: self._parse_status_group(v) for k, v in cj.items()}
-        if check:
-            self.check_status(status)
-        return status
-
     @classmethod
     def _parse_status_group(cls, v):
         if v is None or v == "null" or v == "None" or not v:
             return None
         return json.loads(v)
 
-    ALLOWED_STATUS_VARIATIONS = {"OPER": ["AC_MODE", "FANSPD", "SPT", "AC_STSRC"]}
-
-    def check_status(self, status):
-        if self.baseline_status is None:
-            # basline check not available (i.e. non-strict mode)
-            return
-        baseline_status = json.load(open(self.baseline_status, "r"))
-        assert status.keys() == baseline_status.keys(), "different keys"
-        for k, s1 in status.items():
-            assert list(s1.keys()) == [k], f"expected ['{k}'] to have one '{k}' key"
-            s2 = s1[k]
-            assert (
-                s2.keys() == baseline_status[k][k].keys()
-            ), f"different keys in ['{k}']['{k}']"
-            if k == "DIAG_L2":
-                continue
-            for k2, v2 in s2.items():
-                if k2 in self.ALLOWED_STATUS_VARIATIONS.get(k, []):
-                    continue
-                ref = baseline_status[k][k][k2]
-                assert (
-                    v2 == ref
-                ), f"mismatch in ['{k}']['{k}']['{k2}']: {repr(v2)} vs {repr(ref)}"
-
-    def renew_sid(self):
-        if self.use_singe_sid:
-            self.sid = get_shared_sid(self.imei, self.token)
-        else:
-            self.sid = generate_sid(self.imei, self.token)
-            logger.debug(f"renewed sid: {self.sid}")
+    @contextmanager
+    def _modify_oper_and_send_command(self):
+        self.update_status()
+        new_oper = self.status.raw["OPER"]["OPER"].copy()
+        # make any needed modifications inplace within the context
+        yield new_oper
+        self._post_with_retry("SEND_COMMAND", dict(
+            id=self.ac_id,
+            commandJson=json.dumps({"OPER": new_oper})
+        ))
 
     def modify_oper(
         self,
@@ -229,47 +218,86 @@ class AC:
         fan_speed=None,
         temperature=None,
         ac_stsrc="WI-FI",
-        auto_on_off=True,
     ):
-        status = self.status(check=True)
-        new_oper = status["OPER"]["OPER"].copy()
-        if ac_mode is not None:
-            new_oper["AC_MODE"] = ac_mode
-        if fan_speed is not None:
-            new_oper["FANSPD"] = fan_speed
-        if temperature is not None:
-            if "SPT" in new_oper:
-                temperature = (
-                    int(temperature)
-                    if isinstance(new_oper["SPT"], int)
-                    else str(temperature)
-                )
-            new_oper["SPT"] = temperature
-        if ac_stsrc is not None and "AC_STSRC" in new_oper:
-            new_oper["AC_STSRC"] = ac_stsrc
-        if auto_on_off:
-            if "TURN_ON_OFF" in new_oper and ac_mode is not None:
-                if ac_mode == "STBY":
-                    new_oper["TURN_ON_OFF"] = "OFF"
+        with self._modify_oper_and_send_command() as oper:
+            if ac_mode is not None:
+                if self.model.on_off_flag:
+                    if ac_mode == "STBY":
+                        # in models with on-off flag, we don't set ac_mode to standby, but turn the flag off instead
+                        oper["TURN_ON_OFF"] = "OFF"
+                    else:
+                        # similarly, we must turn on the flag when we set ac mode
+                        oper["AC_MODE"] = ac_mode
+                        oper["TURN_ON_OFF"] = "ON"
                 else:
-                    new_oper["TURN_ON_OFF"] = "ON"
-        self._post_with_retry(
-            "SEND_COMMAND",
-            dict(id=self.ac_id, commandJson=json.dumps({"OPER": new_oper})),
-        )
+                    oper["AC_MODE"] = ac_mode
+            if fan_speed is not None:
+                oper["FANSPD"] = fan_speed
+            if temperature is not None:
+                if "SPT" in oper:
+                    temperature = int(temperature) if isinstance(oper["SPT"], int) else str(temperature)
+                oper["SPT"] = temperature
+            if ac_stsrc is not None and "AC_STSRC" in oper:
+                oper["AC_STSRC"] = ac_stsrc
 
     def turn_off(self):
-        self.modify_oper(ac_mode="STBY")
+        with self._modify_oper_and_send_command() as oper:
+            if self.model.on_off_flag:
+                oper["TURN_ON_OFF"] = "OFF"
+            else:
+                oper["AC_MODE"] = "STBY"
 
-    def cool_24_auto(self):
-        self.modify_oper(ac_mode="COOL", fan_speed="AUTO", temperature=24)
+    @property
+    def model(self):
+        if self._model is None:
+            if self._status is None:
+                self._fetch_status()
+            self._model = ACModel(self._status)
+        return self._model
 
-    def fan_high(self):
-        self.modify_oper(ac_mode="FAN", fan_speed="HIGH")
 
-    def cool_26_low(self):
-        self.modify_oper(ac_mode="COOL", fan_speed="LOW", temperature=26)
+class ACModel:
+    """Accessor to specific AC model characteristics
+    """
+    def __init__(self, status):
+        self.on_off_flag = "TURN_ON_OFF" in status["OPER"]["OPER"]
 
 
-def default_example_status_path():
-    return os.path.join(os.path.dirname(__file__), "example_status.json")
+class DeviceStatusAccessor:
+    """Accessor to device status
+    """
+    def __init__(self, status, ac_model):
+        self.status = status
+        self.ac_model = ac_model
+
+    @property
+    def _operoper(self):
+        return self.status.get("OPER", {}).get("OPER", {})
+
+    @property
+    def raw(self):
+        return self.status
+
+    @property
+    def is_on(self):
+        if self.ac_model.on_off_flag:
+            return self.status["OPER"]["OPER"]["TURN_ON_OFF"] != "OFF"
+        else:
+            return self.status["OPER"]["OPER"]["AC_MODE"] != "STBY"
+
+    @property
+    def fan_speed(self):
+        return self._operoper.get("FANSPD", "OFF") if self.is_on else "OFF"
+
+    @property
+    def ac_mode(self):
+        return self._operoper.get("AC_MODE", "STBY") if self.is_on else "STBY"
+
+    @property
+    def spt(self):
+        return self._operoper.get("SPT")
+
+    @property
+    def current_temp(self):
+        diag_l2 = self.status.get("DIAG_L2", {}).get("DIAG_L2", {})
+        return diag_l2.get("I_CALC_AT") or diag_l2.get("I_RAT")

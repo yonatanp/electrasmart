@@ -65,11 +65,10 @@ def gen_baseline_status():
     if args.output_file is None:
         args.output_file = f"baseline_status_{args.ac_id}.json"
     ac = AC(args.imei, args.token, args.ac_id)
-    sid = ac.renew_sid()
-    print(f"renewed sid: {sid}")
-    status = ac.status(check=False)
+    ac.renew_sid()
+    ac.update_status()
     f = open(args.output_file, "w") if args.output_file != "-" else sys.stdout
-    json.dump(status, f)
+    json.dump(ac._status, f)
     print(
         f"Baseline status for AC id {args.ac_id} written successfully to "
         f"{args.output_file if args.output_file != '-' else 'stdout'}"
@@ -105,8 +104,7 @@ def send_command():
     if not oper_kwargs:
         parser.exit(message="no change was requested, aborting")
     ac = AC(args.imei, args.token, args.ac_id)
-    sid = ac.renew_sid()
-    print(f"renewed sid: {sid}")
+    ac.renew_sid()
     ac.modify_oper(**oper_kwargs)
 
 
