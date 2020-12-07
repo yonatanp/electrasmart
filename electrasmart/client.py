@@ -24,7 +24,7 @@ class ElectraAPI:
     SID = None
 
     @classmethod
-    def post(cls, cmd, data, sid=None, os_details=False, retry=False):
+    def post(cls, cmd, data, sid=None, os_details=False, is_second_try=False):
         if os_details:
             data = data.copy()
             data.update(cls.MOCK_OS_DATA)
@@ -47,7 +47,7 @@ class ElectraAPI:
             )
             raise
         logger.debug(f"Response received (id={random_id}):\n{pformat(j)}")
-        if retry:
+        if is_second_try:
             try:
                 assert j["status"] == 0, "invalid status returned from command"
                 assert j["data"]["res"] == 0, "invalid res returned from command"
@@ -124,7 +124,7 @@ def get_shared_sid(imei, token):
 
 def date_diff_in_seconds(dt2, dt1):
     timedelta = dt2 - dt1
-    return timedelta.days * 24 * 3600 + timedelta.seconds
+    return timedelta.total_seconds()
 
 
 def get_devices(imei, token):
@@ -171,22 +171,22 @@ class AC:
         return DeviceStatusAccessor(self._status, self.model)
 
     def _fetch_status(self):
-        r = self._post_with_retry(
+        r = self._post_with_sid_check(
             "GET_LAST_TELEMETRY", dict(id=self.ac_id, commandName="OPER,DIAG_L2,HB")
         )
         cj = r["commandJson"]
         status = {k: self._parse_status_group(v) for k, v in cj.items()}
         return status
 
-    def _post_with_retry(self, cmd, data, os_details=False):
+    def _post_with_sid_check(self, cmd, data, os_details=False):
         res = self._post(cmd, data, os_details, False)
         if not res:
             self.renew_sid()
             return self._post(cmd, data, os_details, True)
         return res
 
-    def _post(self, cmd, data, os_details=False, retry=False):
-        return ElectraAPI.post(cmd, data, self._get_sid(), os_details, retry)
+    def _post(self, cmd, data, os_details=False, is_second_try=False):
+        return ElectraAPI.post(cmd, data, self._get_sid(), os_details, is_second_try)
 
     def _get_sid(self):
         if self.use_singe_sid:
@@ -206,7 +206,7 @@ class AC:
         new_oper = self.status.raw["OPER"]["OPER"].copy()
         # make any needed modifications inplace within the context
         yield new_oper
-        self._post_with_retry("SEND_COMMAND", dict(
+        self._post_with_sid_check("SEND_COMMAND", dict(
             id=self.ac_id,
             commandJson=json.dumps({"OPER": new_oper})
         ))
