@@ -231,16 +231,14 @@ class AC:
 
 
 class ACModel:
-    """Accessor to specific AC model characteristics
-    """
+    """Accessor to specific AC model characteristics"""
 
     def __init__(self, status):
         self.on_off_flag = "TURN_ON_OFF" in status["OPER"]["OPER"]
 
 
 class DeviceStatusAccessor:
-    """Accessor to device status
-    """
+    """Accessor to device status"""
 
     def __init__(self, status, ac_model):
         self.status = status
