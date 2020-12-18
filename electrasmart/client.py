@@ -300,4 +300,4 @@ class DeviceStatusAccessor:
     @property
     def current_temp(self):
         diag_l2 = self.status.get("DIAG_L2", {}).get("DIAG_L2", {})
-        return diag_l2.get("I_CALC_AT") or diag_l2.get("I_RAT")
+        return diag_l2.get("I_RAT")
