@@ -49,8 +49,22 @@ class ElectraAPI:
                 raise
         else:
             if j["status"] != 0 or j["data"] is None or j["data"]["res"] != 0:
-                return False
+                raise cls.RenewSidAndRetryException(j)
         return j["data"]
+
+    # raised upon failure in the first try of a post
+    class RenewSidAndRetryException(Exception):
+        def __init__(self, post_response):
+            self.post_response = post_response
+            super().__init__()
+
+        @property
+        def res_desc(self):
+            resp = self.post_response or {}
+            res_desc = resp.get('data', {}).get('res_desc')
+            if res_desc is None:
+                return "[result description was not provided in post response]"
+            return res_desc
 
 
 def send_otp_request(phone):
@@ -130,11 +144,14 @@ class AC:
         self._model = None
 
     def renew_sid(self):
-        if self.use_singe_sid:
-            self.sid = get_shared_sid(self.imei, self.token)
-        else:
-            self.sid = generate_sid(self.imei, self.token)
-            logger.debug(f"renewed sid: {self.sid}")
+        try:
+            if self.use_singe_sid:
+                self.sid = get_shared_sid(self.imei, self.token)
+            else:
+                self.sid = generate_sid(self.imei, self.token)
+                logger.debug(f"renewed sid: {self.sid}")
+        except ElectraAPI.RenewSidAndRetryException as exc:
+            raise Exception(f"Failed to renew sid: {exc.res_desc}")
 
     def update_status(self):
         self._status = self._fetch_status()
@@ -154,11 +171,11 @@ class AC:
         return status
 
     def _post_with_sid_check(self, cmd, data, os_details=False):
-        res = self._post(cmd, data, os_details, False)
-        if not res:
+        try:
+            return self._post(cmd, data, os_details, False)
+        except ElectraAPI.RenewSidAndRetryException:
             self.renew_sid()
             return self._post(cmd, data, os_details, True)
-        return res
 
     def _post(self, cmd, data, os_details=False, is_second_try=False):
         return ElectraAPI.post(cmd, data, self._get_sid(), os_details, is_second_try)
