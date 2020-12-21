@@ -14,17 +14,14 @@ class ElectraAPI:
     URL = "https://app.ecpiot.co.il/mobile/mobilecommand"
     HEADERS = {"user-agent": "Electra Client"}
 
-    MOCK_OS_DATA = {
-        "os": "android",
-        "osver": "M4B30Z",
-    }
+    MOCK_OS_DATA = {"os": "android", "osver": "M4B30Z"}
 
     MIN_TIME_BETWEEN_SID_UPDATES = 60
     LAST_SID_UPDATE_DATETIME = None
     SID = None
 
     @classmethod
-    def post(cls, cmd, data, sid=None, os_details=False, retry=False):
+    def post(cls, cmd, data, sid=None, os_details=False, is_second_try=False):
         if os_details:
             data = data.copy()
             data.update(cls.MOCK_OS_DATA)
@@ -35,11 +32,7 @@ class ElectraAPI:
             f"post json data:\n{pformat(post_data)}"
         )
         try:
-            response = requests.post(
-                cls.URL,
-                headers=cls.HEADERS,
-                json=post_data,
-            )
+            response = requests.post(cls.URL, headers=cls.HEADERS, json=post_data)
             j = response.json()
         except:
             logger.exception(
@@ -47,7 +40,7 @@ class ElectraAPI:
             )
             raise
         logger.debug(f"Response received (id={random_id}):\n{pformat(j)}")
-        if retry:
+        if is_second_try:
             try:
                 assert j["status"] == 0, "invalid status returned from command"
                 assert j["data"]["res"] == 0, "invalid res returned from command"
@@ -69,13 +62,7 @@ def send_otp_request(phone):
     """
     # generate a random imei with a valid prefix (note: this might not be checked today, but just in case)
     imei = f"2b950000{random.randint(10**7, 10**8-1)}"
-    ElectraAPI.post(
-        "SEND_OTP",
-        dict(
-            imei=imei,
-            phone=phone,
-        ),
-    )
+    ElectraAPI.post("SEND_OTP", dict(imei=imei, phone=phone))
     return imei
 
 
@@ -98,12 +85,7 @@ def get_otp_token(imei, phone, otp):
 
 def generate_sid(imei, token):
     result = ElectraAPI.post(
-        "VALIDATE_TOKEN",
-        dict(
-            imei=imei,
-            token=token,
-        ),
-        os_details=True,
+        "VALIDATE_TOKEN", dict(imei=imei, token=token), os_details=True
     )
     return result["sid"]
 
@@ -124,7 +106,7 @@ def get_shared_sid(imei, token):
 
 def date_diff_in_seconds(dt2, dt1):
     timedelta = dt2 - dt1
-    return timedelta.days * 24 * 3600 + timedelta.seconds
+    return timedelta.total_seconds()
 
 
 def get_devices(imei, token):
@@ -137,14 +119,7 @@ def get_devices(imei, token):
 
 
 class AC:
-    def __init__(
-        self,
-        imei,
-        token,
-        ac_id,
-        sid=None,
-        use_single_sid=False,
-    ):
+    def __init__(self, imei, token, ac_id, sid=None, use_single_sid=False):
         self.imei = imei
         self.token = token
         self.ac_id = ac_id
@@ -171,22 +146,22 @@ class AC:
         return DeviceStatusAccessor(self._status, self.model)
 
     def _fetch_status(self):
-        r = self._post_with_retry(
+        r = self._post_with_sid_check(
             "GET_LAST_TELEMETRY", dict(id=self.ac_id, commandName="OPER,DIAG_L2,HB")
         )
         cj = r["commandJson"]
         status = {k: self._parse_status_group(v) for k, v in cj.items()}
         return status
 
-    def _post_with_retry(self, cmd, data, os_details=False):
+    def _post_with_sid_check(self, cmd, data, os_details=False):
         res = self._post(cmd, data, os_details, False)
         if not res:
             self.renew_sid()
             return self._post(cmd, data, os_details, True)
         return res
 
-    def _post(self, cmd, data, os_details=False, retry=False):
-        return ElectraAPI.post(cmd, data, self._get_sid(), os_details, retry)
+    def _post(self, cmd, data, os_details=False, is_second_try=False):
+        return ElectraAPI.post(cmd, data, self._get_sid(), os_details, is_second_try)
 
     def _get_sid(self):
         if self.use_singe_sid:
@@ -206,18 +181,13 @@ class AC:
         new_oper = self.status.raw["OPER"]["OPER"].copy()
         # make any needed modifications inplace within the context
         yield new_oper
-        self._post_with_retry("SEND_COMMAND", dict(
-            id=self.ac_id,
-            commandJson=json.dumps({"OPER": new_oper})
-        ))
+        self._post_with_sid_check(
+            "SEND_COMMAND",
+            dict(id=self.ac_id, commandJson=json.dumps({"OPER": new_oper})),
+        )
 
     def modify_oper(
-        self,
-        *,
-        ac_mode=None,
-        fan_speed=None,
-        temperature=None,
-        ac_stsrc="WI-FI",
+        self, *, ac_mode=None, fan_speed=None, temperature=None, ac_stsrc="WI-FI"
     ):
         with self._modify_oper_and_send_command() as oper:
             if ac_mode is not None:
@@ -235,7 +205,11 @@ class AC:
                 oper["FANSPD"] = fan_speed
             if temperature is not None:
                 if "SPT" in oper:
-                    temperature = int(temperature) if isinstance(oper["SPT"], int) else str(temperature)
+                    temperature = (
+                        int(temperature)
+                        if isinstance(oper["SPT"], int)
+                        else str(temperature)
+                    )
                 oper["SPT"] = temperature
             if ac_stsrc is not None and "AC_STSRC" in oper:
                 oper["AC_STSRC"] = ac_stsrc
@@ -257,15 +231,15 @@ class AC:
 
 
 class ACModel:
-    """Accessor to specific AC model characteristics
-    """
+    """Accessor to specific AC model characteristics"""
+
     def __init__(self, status):
         self.on_off_flag = "TURN_ON_OFF" in status["OPER"]["OPER"]
 
 
 class DeviceStatusAccessor:
-    """Accessor to device status
-    """
+    """Accessor to device status"""
+
     def __init__(self, status, ac_model):
         self.status = status
         self.ac_model = ac_model
