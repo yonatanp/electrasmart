@@ -61,7 +61,7 @@ class ElectraAPI:
         @property
         def res_desc(self):
             resp = self.post_response or {}
-            res_desc = resp.get('data', {}).get('res_desc')
+            res_desc = resp.get("data", {}).get("res_desc")
             if res_desc is None:
                 return "[result description was not provided in post response]"
             return res_desc
@@ -296,7 +296,11 @@ class DeviceStatusAccessor:
         # see for example https://github.com/yonatanp/electrasmart-custom-component/issues/8
         # so we look for the value in order of preference of keys, and also filter on sane range of values
         candidates = [diag_l2.get(key) for key in ["I_RAT", "I_CALC_AT", "I_RCT"]]
-        candidates = [value for value in candidates if value is not None and -5 <= int(value) <= 42]
+        candidates = [
+            value
+            for value in candidates
+            if value is not None and -5 <= int(value) <= 42
+        ]
         if len(candidates) == 0:
             # no idea what's the temperature
             return None
