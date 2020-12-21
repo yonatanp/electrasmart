@@ -291,4 +291,13 @@ class DeviceStatusAccessor:
     @property
     def current_temp(self):
         diag_l2 = self.status.get("DIAG_L2", {}).get("DIAG_L2", {})
-        return diag_l2.get("I_CALC_AT") or diag_l2.get("I_RAT")
+        # different devices use different keys to represent the current temperature.
+        # furthermore, on some devices, bizarre extreme values appear in some of the keys.
+        # see for example https://github.com/yonatanp/electrasmart-custom-component/issues/8
+        # so we look for the value in order of preference of keys, and also filter on sane range of values
+        candidates = [diag_l2.get(key) for key in ["I_RAT", "I_CALC_AT", "I_RCT"]]
+        candidates = [value for value in candidates if value is not None and -5 <= int(value) <= 42]
+        if len(candidates) == 0:
+            # no idea what's the temperature
+            return None
+        return candidates[0]
