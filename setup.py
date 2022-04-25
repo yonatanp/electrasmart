@@ -4,7 +4,7 @@ setup(
     name="electrasmart",
     author="Yonatan Perry",
     author_email="yonatan.perry@gmail.com",
-    version="0.7.0",
+    version="0.7",
     description="API client for Electra Smart air conditioner",
     long_description="API client for Electra Smart air conditioner",
     url="https://github.com/yonatanp/electrasmart",
