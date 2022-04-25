@@ -21,7 +21,7 @@ setup(
             "electrasmart-auth=electrasmart.cli:auth",
             "electrasmart-list-devices=electrasmart.cli:list_devices",
             "electrasmart-gen-baseline-status=electrasmart.cli:gen_baseline_status",
-            "electrasmart-send-command=electrasmart.cli:send_command"
+            "electrasmart-send-command=electrasmart.cli:send_command",
         ]
-    }
+    },
 )
