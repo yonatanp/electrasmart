@@ -4,7 +4,7 @@ setup(
     name="electrasmart",
     author="Yonatan Perry",
     author_email="yonatan.perry@gmail.com",
-    version="0.6.0",
+    version="0.7.0",
     description="API client for Electra Smart air conditioner",
     long_description="API client for Electra Smart air conditioner",
     url="https://github.com/yonatanp/electrasmart",
@@ -15,6 +15,10 @@ setup(
     classifiers=[
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python",
+        "Programming Language :: Python :: 3 :: Only",
+        "Development Status :: 5 - Production/Stable",
+        "Operating System :: OS Independent",
+        "Topic :: Home Automation",
     ],
     entry_points={
         "console_scripts": [
