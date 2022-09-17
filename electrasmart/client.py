@@ -204,8 +204,7 @@ class AC:
         )
 
     def modify_oper(
-        self, *, ac_mode=None, fan_speed=None, temperature=None, ac_stsrc="WI-FI"
-    ):
+        self, *, ac_mode=None, fan_speed=None, temperature=None, ac_stsrc="WI-FI", permissive_args=False, **kwargs):
         with self._modify_oper_and_send_command() as oper:
             if ac_mode is not None:
                 if self.model.on_off_flag:
@@ -230,6 +229,19 @@ class AC:
                 oper["SPT"] = temperature
             if ac_stsrc is not None and "AC_STSRC" in oper:
                 oper["AC_STSRC"] = ac_stsrc
+
+            for k, v in kwargs.items():
+                if permissive_args:
+                    # Fallback for easyfix next time
+                    if k in oper:
+                        oper[k] = v
+                else:
+                    if k == "SHABAT" and "SHABAT" in oper:
+                        oper["SHABAT"] = v
+                    if k == "SLEEP" and "SLEEP" in oper:
+                        oper["SLEEP"] = v
+                    if k == "IFEEL" and "IFEEL" in oper:
+                        oper["IFEEL"] = v
 
     def turn_off(self):
         with self._modify_oper_and_send_command() as oper:
@@ -305,3 +317,15 @@ class DeviceStatusAccessor:
             # no idea what's the temperature
             return None
         return candidates[0]
+
+    @property
+    def shabat(self):
+        return self._operoper.get("SHABAT")
+
+    @property
+    def sleep(self):
+        return self._operoper.get("SLEEP")
+
+    @property
+    def ifeel(self):
+        return self._operoper.get("IFEEL")
