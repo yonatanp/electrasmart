@@ -204,7 +204,16 @@ class AC:
         )
 
     def modify_oper(
-        self, *, ac_mode=None, fan_speed=None, temperature=None, ac_stsrc="WI-FI", shabat=None, ac_sleep=None, ifeel=None):
+        self,
+        *,
+        ac_mode=None,
+        fan_speed=None,
+        temperature=None,
+        ac_stsrc="WI-FI",
+        shabat=None,
+        ac_sleep=None,
+        ifeel=None,
+    ):
         with self._modify_oper_and_send_command() as oper:
             if ac_mode is not None:
                 if self.model.on_off_flag:
