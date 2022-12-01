@@ -204,7 +204,15 @@ class AC:
         )
 
     def modify_oper(
-        self, *, ac_mode=None, fan_speed=None, temperature=None, ac_stsrc="WI-FI"
+        self,
+        *,
+        ac_mode=None,
+        fan_speed=None,
+        temperature=None,
+        ac_stsrc="WI-FI",
+        shabat=None,
+        ac_sleep=None,
+        ifeel=None,
     ):
         with self._modify_oper_and_send_command() as oper:
             if ac_mode is not None:
@@ -230,6 +238,12 @@ class AC:
                 oper["SPT"] = temperature
             if ac_stsrc is not None and "AC_STSRC" in oper:
                 oper["AC_STSRC"] = ac_stsrc
+            if shabat is not None and "SHABAT" in oper:
+                oper["SHABAT"] = shabat
+            if ac_sleep is not None and "SLEEP" in oper:
+                oper["SLEEP"] = ac_sleep
+            if ifeel is not None and "IFEEL" in oper:
+                oper["IFEEL"] = ifeel
 
     def turn_off(self):
         with self._modify_oper_and_send_command() as oper:
@@ -305,3 +319,15 @@ class DeviceStatusAccessor:
             # no idea what's the temperature
             return None
         return candidates[0]
+
+    @property
+    def shabat(self):
+        return self._operoper.get("SHABAT")
+
+    @property
+    def sleep(self):
+        return self._operoper.get("SLEEP")
+
+    @property
+    def ifeel(self):
+        return self._operoper.get("IFEEL")
