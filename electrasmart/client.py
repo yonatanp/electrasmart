@@ -198,24 +198,13 @@ class AC:
         new_oper = self.status.raw["OPER"]["OPER"].copy()
         # make any needed modifications inplace within the context
         yield new_oper
-        r = self._post_with_sid_check(
+        self._post_with_sid_check(
             "SEND_COMMAND",
             dict(id=self.ac_id, commandJson=json.dumps({"OPER": new_oper})),
         )
-        cj = r["commandJson"]
-        self._status = {k: self._parse_status_group(v) for k, v in cj.items()}
 
     def modify_oper(
-        self,
-        *,
-        ac_mode=None,
-        fan_speed=None,
-        temperature=None,
-        ac_stsrc="WI-FI",
-        shabat=None,
-        ac_sleep=None,
-        ifeel=None,
-    ):
+        self, *, ac_mode=None, fan_speed=None, temperature=None, ac_stsrc="WI-FI", permissive_args=False, **kwargs):
         with self._modify_oper_and_send_command() as oper:
             if ac_mode is not None:
                 if self.model.on_off_flag:
@@ -240,12 +229,19 @@ class AC:
                 oper["SPT"] = temperature
             if ac_stsrc is not None and "AC_STSRC" in oper:
                 oper["AC_STSRC"] = ac_stsrc
-            if shabat is not None and "SHABAT" in oper:
-                oper["SHABAT"] = shabat
-            if ac_sleep is not None and "SLEEP" in oper:
-                oper["SLEEP"] = ac_sleep
-            if ifeel is not None and "IFEEL" in oper:
-                oper["IFEEL"] = ifeel
+
+            for k, v in kwargs.items():
+                if permissive_args:
+                    # Fallback for easyfix next time
+                    if k in oper:
+                        oper[k] = v
+                else:
+                    if k == "SHABAT" and "SHABAT" in oper:
+                        oper["SHABAT"] = v
+                    if k == "SLEEP" and "SLEEP" in oper:
+                        oper["SLEEP"] = v
+                    if k == "IFEEL" and "IFEEL" in oper:
+                        oper["IFEEL"] = v
 
     def turn_off(self):
         with self._modify_oper_and_send_command() as oper:
