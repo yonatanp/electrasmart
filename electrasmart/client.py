@@ -56,7 +56,7 @@ class ElectraAPI:
 
     @classmethod
     async def async_post(
-            cls, cmd, data, sid=None, os_details=False, is_second_try=False
+        cls, cmd, data, sid=None, os_details=False, is_second_try=False
     ):
         if os_details:
             data = data.copy()
@@ -70,7 +70,7 @@ class ElectraAPI:
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                        cls.URL, headers=cls.HEADERS, json=post_data
+                    cls.URL, headers=cls.HEADERS, json=post_data
                 ) as response:
                     j = await response.json(content_type=None)
         except:
@@ -153,10 +153,10 @@ async def async_generate_sid(imei, token):
 def get_shared_sid(imei, token):
     date_now = datetime.now()
     if (
-            ElectraAPI.SID is None
-            or ElectraAPI.LAST_SID_UPDATE_DATETIME is None
-            or date_diff_in_seconds(date_now, ElectraAPI.LAST_SID_UPDATE_DATETIME)
-            > ElectraAPI.MIN_TIME_BETWEEN_SID_UPDATES
+        ElectraAPI.SID is None
+        or ElectraAPI.LAST_SID_UPDATE_DATETIME is None
+        or date_diff_in_seconds(date_now, ElectraAPI.LAST_SID_UPDATE_DATETIME)
+        > ElectraAPI.MIN_TIME_BETWEEN_SID_UPDATES
     ):
         ElectraAPI.SID = generate_sid(imei, token)
         ElectraAPI.LAST_SID_UPDATE_DATETIME = date_now
@@ -167,10 +167,10 @@ def get_shared_sid(imei, token):
 async def async_get_shared_sid(imei, token):
     date_now = datetime.now()
     if (
-            ElectraAPI.SID is None
-            or ElectraAPI.LAST_SID_UPDATE_DATETIME is None
-            or date_diff_in_seconds(date_now, ElectraAPI.LAST_SID_UPDATE_DATETIME)
-            > ElectraAPI.MIN_TIME_BETWEEN_SID_UPDATES
+        ElectraAPI.SID is None
+        or ElectraAPI.LAST_SID_UPDATE_DATETIME is None
+        or date_diff_in_seconds(date_now, ElectraAPI.LAST_SID_UPDATE_DATETIME)
+        > ElectraAPI.MIN_TIME_BETWEEN_SID_UPDATES
     ):
         ElectraAPI.SID = await async_generate_sid(imei, token)
         ElectraAPI.LAST_SID_UPDATE_DATETIME = date_now
@@ -297,15 +297,15 @@ class AC:
         )
 
     def modify_oper(
-            self,
-            *,
-            ac_mode=None,
-            fan_speed=None,
-            temperature=None,
-            ac_stsrc="WI-FI",
-            shabat=None,
-            ac_sleep=None,
-            ifeel=None,
+        self,
+        *,
+        ac_mode=None,
+        fan_speed=None,
+        temperature=None,
+        ac_stsrc="WI-FI",
+        shabat=None,
+        ac_sleep=None,
+        ifeel=None,
     ):
         with self._modify_oper_and_send_command() as oper:
             if ac_mode is not None:
