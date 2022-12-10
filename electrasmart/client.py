@@ -212,7 +212,7 @@ class AC:
     async def async_renew_sid(self):
         try:
             if self.use_singe_sid:
-                self.sid = get_shared_sid(self.imei, self.token)
+                self.sid = await async_get_shared_sid(self.imei, self.token)
             else:
                 self.sid = await async_generate_sid(self.imei, self.token)
                 logger.debug(f"renewed sid: {self.sid}")
