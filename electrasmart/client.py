@@ -6,6 +6,8 @@ from contextlib import contextmanager
 
 import requests
 import logging
+import aiohttp
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +42,39 @@ class ElectraAPI:
             )
             raise
         logger.debug(f"Response received (id={random_id}):\n{pformat(j)}")
+        if is_second_try:
+            try:
+                assert j["status"] == 0, "invalid status returned from command"
+                assert j["data"]["res"] == 0, "invalid res returned from command"
+            except:
+                logger.exception(f"Error status when posting command")
+                raise
+        else:
+            if j["status"] != 0 or j["data"] is None or j["data"]["res"] != 0:
+                raise cls.RenewSidAndRetryException(j)
+        return j["data"]
+
+    @classmethod
+    async def async_post(cls, cmd, data, sid=None, os_details=False, is_second_try=False):
+        if os_details:
+            data = data.copy()
+            data.update(cls.MOCK_OS_DATA)
+        random_id = random.randint(1000, 1999)
+        post_data = dict(pvdid=1, id=random_id, sid=sid, cmd=cmd, data=data)
+        logger.debug(
+            f"[ASYNC] Posting request\nid: {random_id}\nurl: {cls.URL}\nheaders: {cls.HEADERS}\n"
+            f"[ASYNC] post json data:\n{pformat(post_data)}"
+        )
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(cls.URL, headers=cls.HEADERS, json=post_data) as response:
+                    j = await response.json(content_type=None)
+        except:
+            logger.exception(
+                "[ASYNC] ElectraAPI: Exception caught when posting to cloud service"
+            )
+            raise
+        logger.debug(f"[ASYNC] Response received (id={random_id}):\n{pformat(j)}")
         if is_second_try:
             try:
                 assert j["status"] == 0, "invalid status returned from command"
@@ -104,6 +139,13 @@ def generate_sid(imei, token):
     return result["sid"]
 
 
+async def async_generate_sid(imei, token):
+    result = await ElectraAPI.async_post(
+        "VALIDATE_TOKEN", dict(imei=imei, token=token), os_details=True
+    )
+    return result["sid"]
+
+
 def get_shared_sid(imei, token):
     date_now = datetime.now()
     if (
@@ -113,6 +155,20 @@ def get_shared_sid(imei, token):
         > ElectraAPI.MIN_TIME_BETWEEN_SID_UPDATES
     ):
         ElectraAPI.SID = generate_sid(imei, token)
+        ElectraAPI.LAST_SID_UPDATE_DATETIME = date_now
+        logger.info(f"renewed shared sid: {ElectraAPI.SID}")
+    return ElectraAPI.SID
+
+
+async def async_get_shared_sid(imei, token):
+    date_now = datetime.now()
+    if (
+        ElectraAPI.SID is None
+        or ElectraAPI.LAST_SID_UPDATE_DATETIME is None
+        or date_diff_in_seconds(date_now, ElectraAPI.LAST_SID_UPDATE_DATETIME)
+        > ElectraAPI.MIN_TIME_BETWEEN_SID_UPDATES
+    ):
+        ElectraAPI.SID = await async_generate_sid(imei, token)
         ElectraAPI.LAST_SID_UPDATE_DATETIME = date_now
         logger.info(f"renewed shared sid: {ElectraAPI.SID}")
     return ElectraAPI.SID
@@ -153,8 +209,21 @@ class AC:
         except ElectraAPI.RenewSidAndRetryException as exc:
             raise Exception(f"Failed to renew sid: {exc.res_desc}")
 
+    async def async_renew_sid(self):
+        try:
+            if self.use_singe_sid:
+                self.sid = get_shared_sid(self.imei, self.token)
+            else:
+                self.sid = await async_generate_sid(self.imei, self.token)
+                logger.debug(f"renewed sid: {self.sid}")
+        except ElectraAPI.RenewSidAndRetryException as exc:
+            raise Exception(f"Failed to renew sid: {exc.res_desc}")
+
     def update_status(self):
         self._status = self._fetch_status()
+
+    async def async_update_status(self):
+        self._status = await self._async_fetch_status()
 
     @property
     def status(self):
@@ -170,6 +239,14 @@ class AC:
         status = {k: self._parse_status_group(v) for k, v in cj.items()}
         return status
 
+    async def _async_fetch_status(self):
+        r = await self._async_post_with_sid_check(
+            "GET_LAST_TELEMETRY", dict(id=self.ac_id, commandName="OPER,DIAG_L2,HB")
+        )
+        cj = r["commandJson"]
+        status = {k: self._parse_status_group(v) for k, v in cj.items()}
+        return status
+
     def _post_with_sid_check(self, cmd, data, os_details=False):
         try:
             return self._post(cmd, data, os_details, False)
@@ -177,8 +254,18 @@ class AC:
             self.renew_sid()
             return self._post(cmd, data, os_details, True)
 
+    async def _async_post_with_sid_check(self, cmd, data, os_details=False):
+        try:
+            return await self._async_post(cmd, data, os_details, False)
+        except ElectraAPI.RenewSidAndRetryException:
+            await self.async_renew_sid()
+            return await self._async_post(cmd, data, os_details, True)
+
     def _post(self, cmd, data, os_details=False, is_second_try=False):
         return ElectraAPI.post(cmd, data, self._get_sid(), os_details, is_second_try)
+
+    async def _async_post(self, cmd, data, os_details=False, is_second_try=False):
+        return await ElectraAPI.async_post(cmd, data, self._get_sid(), os_details, is_second_try)
 
     def _get_sid(self):
         if self.use_singe_sid:
@@ -204,7 +291,16 @@ class AC:
         )
 
     def modify_oper(
-        self, *, ac_mode=None, fan_speed=None, temperature=None, ac_stsrc="WI-FI", permissive_args=False, **kwargs):
+        self,
+        *,
+        ac_mode=None,
+        fan_speed=None,
+        temperature=None,
+        ac_stsrc="WI-FI",
+        shabat=None,
+        ac_sleep=None,
+        ifeel=None,
+    ):
         with self._modify_oper_and_send_command() as oper:
             if ac_mode is not None:
                 if self.model.on_off_flag:
@@ -229,19 +325,12 @@ class AC:
                 oper["SPT"] = temperature
             if ac_stsrc is not None and "AC_STSRC" in oper:
                 oper["AC_STSRC"] = ac_stsrc
-
-            for k, v in kwargs.items():
-                if permissive_args:
-                    # Fallback for easyfix next time
-                    if k in oper:
-                        oper[k] = v
-                else:
-                    if k == "SHABAT" and "SHABAT" in oper:
-                        oper["SHABAT"] = v
-                    if k == "SLEEP" and "SLEEP" in oper:
-                        oper["SLEEP"] = v
-                    if k == "IFEEL" and "IFEEL" in oper:
-                        oper["IFEEL"] = v
+            if shabat is not None and "SHABAT" in oper:
+                oper["SHABAT"] = shabat
+            if ac_sleep is not None and "SLEEP" in oper:
+                oper["SLEEP"] = ac_sleep
+            if ifeel is not None and "IFEEL" in oper:
+                oper["IFEEL"] = ifeel
 
     def turn_off(self):
         with self._modify_oper_and_send_command() as oper:
