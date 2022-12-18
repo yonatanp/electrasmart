@@ -202,6 +202,7 @@ class AC:
             self.sid = sid
         self._status = None
         self._model = None
+        self.last_update_status = None
 
     def renew_sid(self):
         try:
@@ -225,6 +226,7 @@ class AC:
 
     def update_status(self):
         self._status = self._fetch_status()
+        self.last_update_status = datetime.now()
 
     async def async_update_status(self):
         self._status = await self._async_fetch_status()
@@ -286,8 +288,9 @@ class AC:
         return json.loads(v)
 
     @contextmanager
-    def _modify_oper_and_send_command(self):
-        self.update_status()
+    def _modify_oper_and_send_command(self, update_status=True):
+        if self._status is None or update_status:
+            self.update_status()
         new_oper = self.status.raw["OPER"]["OPER"].copy()
         # make any needed modifications inplace within the context
         yield new_oper
@@ -306,8 +309,9 @@ class AC:
         shabat=None,
         ac_sleep=None,
         ifeel=None,
+        update_status=True,
     ):
-        with self._modify_oper_and_send_command() as oper:
+        with self._modify_oper_and_send_command(update_status=update_status) as oper:
             if ac_mode is not None:
                 if self.model.on_off_flag:
                     if ac_mode == "STBY":
