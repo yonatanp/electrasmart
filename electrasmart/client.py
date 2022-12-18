@@ -216,7 +216,7 @@ class AC:
         shabat=None,
         ac_sleep=None,
         ifeel=None,
-        update_status=True
+        update_status=True,
     ):
         with self._modify_oper_and_send_command(update_status=update_status) as oper:
             if ac_mode is not None:
