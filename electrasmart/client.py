@@ -196,7 +196,7 @@ class AC:
 
     @contextmanager
     def _modify_oper_and_send_command(self, update_status=True):
-        if update_status:
+        if self._status is None or update_status:
             self.update_status()
         new_oper = self.status.raw["OPER"]["OPER"].copy()
         # make any needed modifications inplace within the context
