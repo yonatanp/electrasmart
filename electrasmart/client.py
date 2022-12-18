@@ -224,8 +224,11 @@ class AC:
         except ElectraAPI.RenewSidAndRetryException as exc:
             raise Exception(f"Failed to renew sid: {exc.res_desc}")
 
-    def update_status(self):
-        self._status = self._fetch_status()
+    def update_status(self, operoper_dict=None):
+        if operoper_dict is None:
+            self._status = self._fetch_status()
+        else:
+            self._status["OPER"]["OPER"] = operoper_dict.copy()
         self.last_update_status = datetime.now()
 
     async def async_update_status(self):
@@ -298,6 +301,7 @@ class AC:
             "SEND_COMMAND",
             dict(id=self.ac_id, commandJson=json.dumps({"OPER": new_oper})),
         )
+        self.update_status(operoper_dict=new_oper)
 
     def modify_oper(
         self,
