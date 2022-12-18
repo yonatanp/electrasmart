@@ -346,8 +346,8 @@ class AC:
             if ifeel is not None and "IFEEL" in oper:
                 oper["IFEEL"] = ifeel
 
-    def turn_off(self):
-        with self._modify_oper_and_send_command() as oper:
+    def turn_off(self, update_status=True):
+        with self._modify_oper_and_send_command(update_status=update_status) as oper:
             if self.model.on_off_flag:
                 oper["TURN_ON_OFF"] = "OFF"
             else:
